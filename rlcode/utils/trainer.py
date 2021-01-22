@@ -92,10 +92,11 @@ class Trainer:
                 if max_reward is not None and rew >= max_reward:
                     break
 
-        self._policy.eval()
-        rew = self._test(test_per_epoch if test_per_epoch > 0 else 3)
-        self._policy.train()
-        self._save(rew)
+        if test_per_epoch < 0:
+            self._policy.eval()
+            rew = self._test(-test_per_epoch)
+            self._policy.train()
+            self._save(rew)
 
         return rew
 
