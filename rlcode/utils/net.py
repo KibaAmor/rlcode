@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Union
 
 from torch import nn
 
@@ -25,23 +25,26 @@ class QNet(nn.Module):
         layer_num: int,
         hidden_size: int,
         dueling: Optional[Tuple[int, int]] = None,
-        activation: Optional[Callable[[], nn.Module]] = None,
+        activation: Optional[Union[str, Callable[[], nn.Module]]] = None,
     ):
         super().__init__()
         self._dueling = dueling
 
+        if isinstance(activation, str):
+            activation = getattr(nn, activation)
+
         if dueling is None:
-            self.net = mlp([obs_n] + [hidden_size] * layer_num + [act_n], activation)
+            self._net = mlp([obs_n] + [hidden_size] * layer_num + [act_n], activation)
         else:
-            self.com = mlp([obs_n] + [hidden_size] * layer_num, activation, activation)
-            self.adv = mlp([hidden_size] * dueling[0] + [act_n], activation)
-            self.val = mlp([hidden_size] * dueling[1] + [1], activation)
+            self._com = mlp([obs_n] + [hidden_size] * layer_num, activation, activation)
+            self._adv = mlp([hidden_size] * dueling[0] + [act_n], activation)
+            self._val = mlp([hidden_size] * dueling[1] + [1], activation)
 
     def forward(self, obs):
         if self._dueling is None:
-            return self.net(obs)
+            return self._net(obs)
 
-        com = self.com(obs)
-        adv = self.adv(com)
-        val = self.val(com)
+        com = self._com(obs)
+        adv = self._adv(com)
+        val = self._val(com)
         return val - adv.mean() + adv
