@@ -140,13 +140,10 @@ class Trainer:
     def _learn(self, batch: Batch, n: int) -> float:
         losses = []
         for _ in range(n):
-
             info = self._policy.learn(batch, self._train_src)
             losses.append(info["loss"])
-
             self._learns += 1
             self._track("learn", info, self._learns)
-
         return np.mean(losses)
 
     def _test(self, n: int) -> float:
@@ -178,9 +175,9 @@ class Trainer:
             "step_max": np.max(steps),
             "step/s": sum(steps) / cost_t,
             "ms/episode": 1000.0 * cost_t / n,
-            "dist/acts": np.concatenate(acts),
+            "dist/test/acts": np.concatenate(acts),
         }
-        self._track("test", info, self._iters)
+        self._track("test", info, self._epoch)
         return rew_mean
 
     def _save(self, rew: float) -> None:
