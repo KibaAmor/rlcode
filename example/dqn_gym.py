@@ -7,7 +7,7 @@ def get_cfg() -> dict:
     cfg = dict(
         seed=42,
         exp_per_collect=64,
-        warmup_size=256,
+        max_episode_step=1000,
         env_fn=gym.make,
         env=dict(
             id="CartPole-v0",
@@ -42,6 +42,7 @@ def get_cfg() -> dict:
             iter_per_epoch=1000,
             learn_per_iter=1,
             test_per_epoch=80,
+            warmup_collect=2,
             max_reward=200,
         ),
     )

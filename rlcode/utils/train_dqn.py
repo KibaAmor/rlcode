@@ -62,17 +62,20 @@ def train_dqn(cfg: dict, cls: DQNPolicy) -> float:
     buffer = create_buffer(**cfg["buffer"])
 
     train_env = cfg["make_env"]()
-    train_src = NStepExperienceSource(policy, train_env, cfg["exp_per_collect"], buffer)
+    train_src = NStepExperienceSource(
+        policy,
+        train_env,
+        cfg["exp_per_collect"],
+        buffer=buffer,
+        max_episode_step=cfg["max_episode_step"],
+    )
 
     test_env = cfg["make_env"]()
-    test_src = EpisodeExperienceSource(policy, test_env)
+    test_src = EpisodeExperienceSource(
+        policy, test_env, max_episode_step=cfg["max_episode_step"]
+    )
 
     writer = SummaryWriter(**cfg["writer"])
-    if cfg["warmup_size"] > 0:
-        batch = train_src.collect(nstep=cfg["warmup_size"])
-        dummy = torch.FloatTensor(batch.obss)
-        writer.add_graph(policy, dummy)
-
     trainer = Trainer(policy, train_src, test_src, writer)
 
     rew = trainer.train(**cfg["train"])

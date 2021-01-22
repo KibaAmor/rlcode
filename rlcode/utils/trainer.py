@@ -46,11 +46,14 @@ class Trainer:
         iter_per_epoch: int = 1000,
         learn_per_iter: int = 1,
         test_per_epoch: int = 80,
+        warmup_collect: int = 0,
         max_reward: Optional[float] = None,
     ) -> dict:
         self._total_iters = epochs * iter_per_epoch
         self._total_learns = self._total_iters * learn_per_iter
         pruned = False
+
+        self._warmup(warmup_collect)
 
         self._policy.train()
         for _ in range(epochs):
@@ -99,6 +102,14 @@ class Trainer:
     def _prune(self, loss) -> bool:
         return loss > 1e8
 
+    def _warmup(self, n: int) -> None:
+        if n <= 0:
+            return
+
+        self._policy.eps = self._eps_collect
+        for _ in range(n):
+            self._train_src.collect()
+
     def _get_collect_eps(self) -> float:
         ratio = self._iters / self._total_iters
         eps = self._eps_collect - (self._eps_collect - self._eps_collect_min) * ratio
@@ -126,9 +137,9 @@ class Trainer:
 
         return batch, step_per_s
 
-    def _learn(self, batch: Batch, learns: int) -> float:
+    def _learn(self, batch: Batch, n: int) -> float:
         losses = []
-        for _ in range(learns):
+        for _ in range(n):
 
             info = self._policy.learn(batch, self._train_src)
             losses.append(info["loss"])
@@ -138,13 +149,13 @@ class Trainer:
 
         return np.mean(losses)
 
-    def _test(self, episodes: int) -> float:
+    def _test(self, n: int) -> float:
         self._policy.eps = self._eps_test
 
         rews = []
         steps = []
         beg_t = time.time()
-        for _ in range(episodes):
+        for _ in range(n):
             batch = self._test_src.collect()
             rews.append(sum(batch.rews))
             steps.append(len(batch))
@@ -164,7 +175,7 @@ class Trainer:
             "step_min": np.min(steps),
             "step_max": np.max(steps),
             "step/s": sum(steps) / cost_t,
-            "ms/episode": 1000.0 * cost_t / episodes,
+            "ms/episode": 1000.0 * cost_t / n,
         }
         self._write_scalar("test", info, self._iters)
         return rew_mean
