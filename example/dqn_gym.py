@@ -20,7 +20,8 @@ def get_cfg() -> dict:
             network=dict(
                 layer_num=1,
                 hidden_size=256,
-                dueling=None,
+                adv_layer_num=0,
+                val_layer_num=0,
                 activation=None,
             ),
             optim=dict(
