@@ -121,6 +121,7 @@ class DQNPolicy(Policy):
         if self._dist_log_freq > 0 and self._learn_count % self._dist_log_freq == 0:
             for name, param in self.network.named_parameters():
                 info[f"dist/network/{name}"] = param
+                info[f"dist/grad/{name}"] = param.grad
 
         if (
             self._target_update_freq > 0

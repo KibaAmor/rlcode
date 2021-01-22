@@ -133,7 +133,7 @@ class Trainer:
         buffer = getattr(self._train_src, "buffer")
         if buffer is not None:
             info["buffer_size"] = len(buffer)
-        self._write_scalar("collect", info, self._steps)
+        self._track("collect", info, self._steps)
 
         return batch, step_per_s
 
@@ -145,7 +145,7 @@ class Trainer:
             losses.append(info["loss"])
 
             self._learns += 1
-            self._write_scalar("learn", info, self._learns)
+            self._track("learn", info, self._learns)
 
         return np.mean(losses)
 
@@ -154,11 +154,13 @@ class Trainer:
 
         rews = []
         steps = []
+        acts = []
         beg_t = time.time()
         for _ in range(n):
             batch = self._test_src.collect()
             rews.append(sum(batch.rews))
             steps.append(len(batch))
+            acts.append(batch.acts)
         cost_t = max(time.time() - beg_t, 1e-6)
 
         rew_mean = np.mean(rews)
@@ -176,8 +178,9 @@ class Trainer:
             "step_max": np.max(steps),
             "step/s": sum(steps) / cost_t,
             "ms/episode": 1000.0 * cost_t / n,
+            "dist/acts": np.concatenate(acts),
         }
-        self._write_scalar("test", info, self._iters)
+        self._track("test", info, self._iters)
         return rew_mean
 
     def _save(self, rew: float) -> None:
@@ -188,7 +191,7 @@ class Trainer:
         policy = deepcopy(self._policy).to(torch.device("cpu"))
         torch.save(policy.state_dict(), f"{logdir}/{rew:.2f}.pth")
 
-    def _write_scalar(self, tag: str, info: dict, step: int) -> None:
+    def _track(self, tag: str, info: dict, step: int) -> None:
         if self._writer is None:
             return
         for k, v in info.items():
