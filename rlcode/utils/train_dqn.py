@@ -5,14 +5,12 @@ import torch
 from rlcode.data.buffer import create_buffer
 from rlcode.data.experience import EpisodeExperienceSource, NStepExperienceSource
 from rlcode.policy.dqn import DQNPolicy
+from rlcode.policy.transformed_dqn import TransformedDQNPolicy
 from rlcode.utils.net import QNet
 from rlcode.utils.trainer import Trainer
 
 
-class DQN(DQNPolicy):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
+class FCDQN:
     @property
     def network(self) -> torch.nn.Module:
         return self.net
@@ -24,6 +22,16 @@ class DQN(DQNPolicy):
     def create_network_optimizer(self, network: dict, optim: dict) -> None:
         self.net = QNet(**network).to(self.device)
         self.optim = torch.optim.Adam(self.network.parameters(), **optim)
+
+
+class DQN(FCDQN, DQNPolicy):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+class TransformedDQN(FCDQN, TransformedDQNPolicy):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 def process_cfg(cfg: dict) -> dict:

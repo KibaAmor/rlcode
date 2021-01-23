@@ -2,13 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
 import torch
-from torch import nn
 
 from rlcode.data.buffer import Batch
 from rlcode.data.experience import ExperienceSource
 
 
-class Policy(ABC, nn.Module):
+class Policy(ABC, torch.nn.Module):
     def __init__(self, device: Optional[torch.device] = None):
         super().__init__()
 

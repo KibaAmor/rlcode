@@ -1,6 +1,6 @@
 import gym
 
-from rlcode.utils.train_dqn import DQN, train_dqn
+from rlcode.utils.train_dqn import TransformedDQN, train_dqn
 
 
 def get_cfg() -> dict:
@@ -17,7 +17,7 @@ def get_cfg() -> dict:
             dist_log_freq=500,
             network=dict(
                 layer_num=1,
-                hidden_size=256,
+                hidden_size=128,
                 adv_layer_num=0,
                 val_layer_num=0,
                 activation=None,
@@ -33,7 +33,7 @@ def get_cfg() -> dict:
             beta=0.4,
         ),
         train_src=dict(
-            nstep=64,
+            nstep=128,
             max_episode_step=1000,
         ),
         test_src=dict(
@@ -51,7 +51,7 @@ def get_cfg() -> dict:
             epochs=200,
             iter_per_epoch=1000,
             learn_per_iter=1,
-            test_per_epoch=80,
+            test_per_epoch=10,
             warmup_collect=4,
             max_reward=200,
         ),
@@ -62,4 +62,4 @@ def get_cfg() -> dict:
 
 if __name__ == "__main__":
     cfg = get_cfg()
-    train_dqn(cfg, DQN)
+    train_dqn(cfg, TransformedDQN)
