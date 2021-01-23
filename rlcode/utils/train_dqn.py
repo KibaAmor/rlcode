@@ -1,7 +1,6 @@
 import gym
 import numpy as np
 import torch
-from torch.utils.tensorboard import SummaryWriter
 
 from rlcode.data.buffer import create_buffer
 from rlcode.data.experience import EpisodeExperienceSource, NStepExperienceSource
@@ -59,25 +58,15 @@ def train_dqn(cfg: dict, cls: DQNPolicy) -> float:
     cfg = process_cfg(cfg)
 
     policy = cls(**cfg["policy"])
-    buffer = create_buffer(**cfg["buffer"])
 
     train_env = cfg["make_env"]()
-    train_src = NStepExperienceSource(
-        policy,
-        train_env,
-        cfg["exp_per_collect"],
-        buffer=buffer,
-        max_episode_step=cfg["max_episode_step"],
-    )
+    buffer = create_buffer(**cfg["buffer"])
+    train_src = NStepExperienceSource(policy, train_env, buffer, **cfg["train_src"])
 
     test_env = cfg["make_env"]()
-    test_src = EpisodeExperienceSource(
-        policy, test_env, max_episode_step=cfg["max_episode_step"]
-    )
+    test_src = EpisodeExperienceSource(policy, test_env, **cfg["test_src"])
 
-    writer = SummaryWriter(**cfg["writer"])
-    trainer = Trainer(policy, train_src, test_src, writer)
-
+    trainer = Trainer(policy, train_src, test_src, **cfg["trainer"])
     rew = trainer.train(**cfg["train"])
 
     train_env.close()

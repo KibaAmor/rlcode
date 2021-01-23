@@ -1,6 +1,6 @@
 import time
 from copy import deepcopy
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -17,7 +17,7 @@ class Trainer:
         policy: Policy,
         train_src: ExperienceSource,
         test_src: ExperienceSource,
-        writer: Optional[SummaryWriter] = None,
+        writer: Optional[Union[str, SummaryWriter]] = None,
         eps_collect: float = 0.6,
         eps_collect_decay: float = 0.6,
         eps_collect_min: float = 0.01,
@@ -26,7 +26,7 @@ class Trainer:
         self._policy = policy
         self._train_src = train_src
         self._test_src = test_src
-        self._writer = writer
+        self._writer = SummaryWriter(writer) if isinstance(writer, str) else writer
         self._eps_collect = eps_collect
         self._eps_collect_decay = eps_collect_decay
         self._eps_collect_min = eps_collect_min
@@ -130,6 +130,7 @@ class Trainer:
         info = {
             "eps": eps,
             "step/s": step_per_s,
+            "dist/act": np.array(batch.acts, copy=False),
         }
         buffer = getattr(self._train_src, "buffer")
         if buffer is not None:
@@ -176,7 +177,7 @@ class Trainer:
             "step_max": np.max(steps),
             "step/s": sum(steps) / cost_t,
             "ms/episode": 1000.0 * cost_t / n,
-            "dist/test/acts": np.concatenate(acts),
+            "dist/act": np.concatenate(acts),
         }
         self._track("test", info, self._epoch)
         return rew_mean
@@ -194,7 +195,7 @@ class Trainer:
             return
         for k, v in info.items():
             if k.startswith("dist/"):
-                self._writer.add_histogram(k[5:], v, step)
+                self._writer.add_histogram(f"{tag}/{k[5:]}", v, step)
             else:
                 self._writer.add_scalar(f"{tag}/{k}", v, step)
 

@@ -93,9 +93,9 @@ class NStepExperienceSource(ExperienceSource):
         self,
         policy,
         env: gym.Env,
+        buffer: Optional[ReplayBuffer],
         nstep: int,
-        buffer: Optional[ReplayBuffer] = None,
-        max_episode_step: int = 1000,
+        max_episode_step: int,
     ):
         super().__init__(policy, env, max_episode_step)
         self._nstep = nstep
@@ -119,7 +119,7 @@ class NStepExperienceSource(ExperienceSource):
 
 
 class EpisodeExperienceSource(ExperienceSource):
-    def __init__(self, policy, env: gym.Env, max_episode_step: int = 1000):
+    def __init__(self, policy, env: gym.Env, max_episode_step: int):
         super().__init__(policy, env, max_episode_step)
 
     def collect(self, **kwargs) -> Batch:

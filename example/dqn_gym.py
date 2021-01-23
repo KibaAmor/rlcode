@@ -6,8 +6,6 @@ from rlcode.utils.train_dqn import DQN, train_dqn
 def get_cfg() -> dict:
     cfg = dict(
         seed=42,
-        exp_per_collect=64,
-        max_episode_step=1000,
         env_fn=gym.make,
         env=dict(
             id="CartPole-v0",
@@ -34,15 +32,26 @@ def get_cfg() -> dict:
             alpha=0.0,
             beta=0.4,
         ),
-        writer=dict(
-            log_dir="./log/dqn_gym",
+        train_src=dict(
+            nstep=64,
+            max_episode_step=1000,
+        ),
+        test_src=dict(
+            max_episode_step=1000,
+        ),
+        trainer=dict(
+            writer="./log/dqn_gym",
+            eps_collect=1.0,
+            eps_collect_decay=0.6,
+            eps_collect_min=0.01,
+            eps_test=0.01,
         ),
         train=dict(
             epochs=200,
             iter_per_epoch=1000,
             learn_per_iter=1,
             test_per_epoch=80,
-            warmup_collect=2,
+            warmup_collect=4,
             max_reward=200,
         ),
     )
