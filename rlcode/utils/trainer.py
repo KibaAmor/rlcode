@@ -18,6 +18,7 @@ class Trainer:
         train_src: ExperienceSource,
         test_src: ExperienceSource,
         writer: Optional[Union[str, SummaryWriter]] = None,
+        save_dir: Optional[str] = None,
         eps_collect: float = 0.6,
         eps_collect_decay: float = 0.6,
         eps_collect_min: float = 0.01,
@@ -27,6 +28,7 @@ class Trainer:
         self._train_src = train_src
         self._test_src = test_src
         self._writer = SummaryWriter(writer) if isinstance(writer, str) else writer
+        self._save_dir = save_dir
         self._eps_collect = eps_collect
         self._eps_collect_decay = eps_collect_decay
         self._eps_collect_min = eps_collect_min
@@ -183,12 +185,10 @@ class Trainer:
         return rew_mean
 
     def _save(self, rew: float) -> None:
-        if self._writer is None or rew <= self._best_rew:
+        if self._save_dir is None or rew <= self._best_rew:
             return
-        logdir = self._writer.get_logdir()
-
         policy = deepcopy(self._policy).to(torch.device("cpu"))
-        torch.save(policy.state_dict(), f"{logdir}/{rew:.2f}.pth")
+        torch.save(policy.state_dict(), f"{self._save_dir}/{rew:.2f}.pth")
 
     def _track(self, tag: str, info: dict, step: int) -> None:
         if self._writer is None:

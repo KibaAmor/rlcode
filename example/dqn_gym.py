@@ -41,7 +41,8 @@ def get_cfg() -> dict:
         ),
         trainer=dict(
             writer="./log/dqn_gym",
-            eps_collect=1.0,
+            save_dir="./log/dqn_gym",
+            eps_collect=0.6,
             eps_collect_decay=0.6,
             eps_collect_min=0.01,
             eps_test=0.01,
