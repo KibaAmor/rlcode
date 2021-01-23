@@ -17,10 +17,10 @@ def get_cfg() -> dict:
             dist_log_freq=500,
             network=dict(
                 layer_num=1,
-                hidden_size=128,
+                hidden_size=256,
                 adv_layer_num=0,
                 val_layer_num=0,
-                activation=None,
+                activation="ReLU",
             ),
             optim=dict(
                 lr=1e-6,
@@ -42,7 +42,7 @@ def get_cfg() -> dict:
         trainer=dict(
             writer="./log/dqn_gym",
             save_dir="./log/dqn_gym",
-            eps_collect=0.6,
+            eps_collect=1.0,
             eps_collect_decay=0.6,
             eps_collect_min=0.01,
             eps_test=0.01,
@@ -54,6 +54,7 @@ def get_cfg() -> dict:
             test_per_epoch=10,
             warmup_collect=4,
             max_reward=200,
+            max_loss=10000,
         ),
     )
 

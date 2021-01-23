@@ -50,6 +50,7 @@ class Trainer:
         test_per_epoch: int = 80,
         warmup_collect: int = 0,
         max_reward: Optional[float] = None,
+        max_loss: Optional[float] = None,
     ) -> dict:
         self._total_iters = epochs * iter_per_epoch
         self._total_learns = self._total_iters * learn_per_iter
@@ -75,7 +76,7 @@ class Trainer:
                     }
                     t.set_postfix(info)
 
-                    if self._prune(loss):
+                    if max_loss is not None and loss > max_loss:
                         pruned = True
                         break
 
@@ -101,9 +102,6 @@ class Trainer:
             self._save(rew)
 
         return rew
-
-    def _prune(self, loss) -> bool:
-        return loss > 1e8
 
     def _warmup(self, n: int) -> None:
         if n <= 0:
