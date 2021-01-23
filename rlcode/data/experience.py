@@ -43,7 +43,7 @@ class Experience:
 
 
 class ExperienceSource(ABC):
-    def __init__(self, policy, env: gym.Env, max_episode_step: int):
+    def __init__(self, policy, env: gym.Env, max_episode_step: Optional[int] = None):
         self._policy = policy
         self._env = env
         self._max_episode_step = max_episode_step
@@ -69,7 +69,9 @@ class ExperienceSource(ABC):
         exp = Experience(self._obs, act, rew, done, nobs, self._mask)
 
         self._steps += 1
-        if done or self._steps >= self._max_episode_step:
+        if done or (
+            self._max_episode_step is not None and self._steps >= self._max_episode_step
+        ):
             self._reset = True
         else:
             self._obs, self._mask = nobs, nmask
@@ -95,7 +97,7 @@ class NStepExperienceSource(ExperienceSource):
         env: gym.Env,
         buffer: Optional[ReplayBuffer],
         nstep: int,
-        max_episode_step: int,
+        max_episode_step: Optional[int] = None,
     ):
         super().__init__(policy, env, max_episode_step)
         self._nstep = nstep
@@ -119,7 +121,7 @@ class NStepExperienceSource(ExperienceSource):
 
 
 class EpisodeExperienceSource(ExperienceSource):
-    def __init__(self, policy, env: gym.Env, max_episode_step: int):
+    def __init__(self, policy, env: gym.Env, max_episode_step: Optional[int] = None):
         super().__init__(policy, env, max_episode_step)
 
     def collect(self, **kwargs) -> Batch:

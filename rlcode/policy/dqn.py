@@ -33,6 +33,9 @@ class DQNPolicy(Policy):
         if target_update_freq > 0:
             self._target_network = deepcopy(self.network).to(self.device)
             self._target_network.load_state_dict(self.network.state_dict())
+            self._target_network.eval()
+            for param in self._target_network.parameters():
+                param.requires_grad = False
 
     @abstractmethod
     def create_network_optimizer(self, **kwargs) -> None:
@@ -127,10 +130,17 @@ class DQNPolicy(Policy):
             self._target_update_freq > 0
             and self._learn_count % self._target_update_freq == 0
         ):
+            self._update_target_network()
+
+        return info
+
+    def _update_target_network(self) -> None:
+        if np.isclose(self._tau, 0):
+            self._target_network.load_state_dict(self.network.state_dict())
+        else:
             pairs = zip(self.network.parameters(), self._target_network.parameters())
             for src, dst in pairs:
                 dst.data.copy_(self._tau * src.data + (1.0 - self._tau) * dst.data)
-        return info
 
     def compute_target_q(
         self,

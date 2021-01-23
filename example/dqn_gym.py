@@ -12,14 +12,14 @@ def get_cfg() -> dict:
         ),
         policy=dict(
             gamma=0.99,
-            tau=0.9,
-            target_update_freq=0,
+            tau=1.0,
+            target_update_freq=1000,
             dist_log_freq=500,
             network=dict(
                 layer_num=1,
-                hidden_size=256,
-                adv_layer_num=0,
-                val_layer_num=0,
+                hidden_size=128,
+                adv_layer_num=1,
+                val_layer_num=1,
                 activation="ReLU",
             ),
             optim=dict(
@@ -37,7 +37,7 @@ def get_cfg() -> dict:
             max_episode_step=1000,
         ),
         test_src=dict(
-            max_episode_step=1000,
+            max_episode_step=None,
         ),
         trainer=dict(
             writer="./log/dqn_gym",
