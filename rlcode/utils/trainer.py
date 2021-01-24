@@ -51,7 +51,7 @@ class Trainer:
         warmup_collect: int = 0,
         max_reward: Optional[float] = None,
         max_loss: Optional[float] = None,
-    ) -> dict:
+    ) -> float:
         self._total_iters = epochs * iter_per_epoch
         self._total_learns = self._total_iters * learn_per_iter
         pruned = False
@@ -101,7 +101,7 @@ class Trainer:
             self._policy.train()
             self._save(rew)
 
-        return rew
+        return self._best_rew
 
     def _warmup(self, n: int) -> None:
         if n <= 0:
