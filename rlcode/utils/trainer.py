@@ -33,13 +33,20 @@ class Trainer:
         self._eps_collect_decay = eps_collect_decay
         self._eps_collect_min = eps_collect_min
         self._eps_test = eps_test
+        self._reset()
 
+    def _reset(self) -> None:
         self._epoch = 0
+
         self._iters = 0
-        self._steps = 0
-        self._learns = 0
         self._total_iters = 0
-        self._total_learns = 0
+
+        self._collected_steps = 0
+        self._sampled_steps = 0
+
+        self._learn_count = 0
+        self._total_learn_count = 0
+
         self._best_rew = -np.inf
 
     def train(
@@ -52,13 +59,14 @@ class Trainer:
         max_reward: Optional[float] = None,
         max_loss: Optional[float] = None,
     ) -> float:
+        self._reset()
         self._total_iters = epochs * iter_per_epoch
-        self._total_learns = self._total_iters * learn_per_iter
-        pruned = False
-
-        self._warmup(warmup_collect)
+        self._total_learn_count = self._total_iters * learn_per_iter
 
         self._policy.train()
+        self._warmup(warmup_collect)
+
+        pruned = False
         for _ in range(epochs):
             self._epoch += 1
 
@@ -106,10 +114,10 @@ class Trainer:
     def _warmup(self, n: int) -> None:
         if n <= 0:
             return
-
         self._policy.eps = self._eps_collect
         for _ in range(n):
-            self._train_src.collect()
+            batch = self._train_src.collect()
+            self._collected_steps += len(batch)
 
     def _get_collect_eps(self) -> float:
         ratio = self._iters / self._total_iters
@@ -123,10 +131,10 @@ class Trainer:
 
         beg_t = time.time()
         batch = self._train_src.collect()
+        self._collected_steps += len(batch)
         cost_t = max(time.time() - beg_t, 1e-6)
         step_per_s = len(batch) / cost_t
 
-        self._steps += len(batch)
         info = {
             "eps": eps,
             "step/s": step_per_s,
@@ -135,7 +143,7 @@ class Trainer:
         buffer = getattr(self._train_src, "buffer")
         if buffer is not None:
             info["buffer_size"] = len(buffer)
-        self._track("collect", info, self._steps)
+        self._track("collect", info, self._collected_steps)
 
         return batch, step_per_s
 
@@ -143,9 +151,13 @@ class Trainer:
         losses = []
         for _ in range(n):
             info = self._policy.learn(batch, self._train_src)
+            info["replay_ratio"] = self._sampled_steps / self._collected_steps
+            self._track("learn", info, self._learn_count)
+
             losses.append(info["loss"])
-            self._learns += 1
-            self._track("learn", info, self._learns)
+            self._sampled_steps += info["batch_size"]
+            self._learn_count += 1
+
         return np.mean(losses)
 
     def _test(self, n: int) -> float:

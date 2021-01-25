@@ -72,7 +72,7 @@ class DQNPolicy(Policy):
         if isinstance(buffer, ReplayBuffer):
             batch = buffer.sample()
 
-        info = {}
+        info = {"batch_size": len(batch)}
         if batch.weights is not None:
             info["weights_mean"] = np.mean(batch.weights)
             info["weights_std"] = np.std(batch.weights)
@@ -93,6 +93,7 @@ class DQNPolicy(Policy):
         qval_pred = self.network(obss).gather(1, acts).squeeze()
         qval_targ = self.compute_target_q(next_obss, rews, dones)
         td_err = qval_pred - qval_targ
+        batch.weights = td_err
 
         loss = (td_err.pow(2) * weights).mean()
         self.optimizer.zero_grad()
@@ -105,7 +106,6 @@ class DQNPolicy(Policy):
             break
 
         self._learn_count += 1
-        batch.weights = td_err
         return batch, info
 
     def post_learn(self, batch: Batch, src: ExperienceSource) -> dict:
@@ -135,7 +135,7 @@ class DQNPolicy(Policy):
         return info
 
     def _update_target_network(self) -> None:
-        if np.isclose(self._tau, 0):
+        if np.isclose(self._tau, 1.0):
             self._target_network.load_state_dict(self.network.state_dict())
         else:
             pairs = zip(self.network.parameters(), self._target_network.parameters())

@@ -1,11 +1,11 @@
 import gym
 
-from rlcode.utils.train_dqn import TransformedDQN, train_dqn
+from rlcode.utils.train_dqn import DQN, train_dqn
 
 
 def get_cfg() -> dict:
     cfg = dict(
-        seed=42,
+        seed=None,
         env_fn=gym.make,
         env=dict(
             id="CartPole-v0",
@@ -13,17 +13,17 @@ def get_cfg() -> dict:
         policy=dict(
             gamma=0.99,
             tau=1.0,
-            target_update_freq=1000,
+            target_update_freq=500,
             dist_log_freq=500,
             network=dict(
-                layer_num=1,
-                hidden_size=128,
-                adv_layer_num=1,
-                val_layer_num=1,
+                layer_num=3,
+                hidden_size=256,
+                adv_layer_num=2,
+                val_layer_num=2,
                 activation="ReLU",
             ),
             optim=dict(
-                lr=1e-6,
+                lr=1e-4,
             ),
         ),
         buffer=dict(
@@ -33,7 +33,7 @@ def get_cfg() -> dict:
             beta=0.4,
         ),
         train_src=dict(
-            nstep=128,
+            nstep=10,
             max_episode_step=1000,
         ),
         test_src=dict(
@@ -52,7 +52,7 @@ def get_cfg() -> dict:
             iter_per_epoch=1000,
             learn_per_iter=1,
             test_per_epoch=10,
-            warmup_collect=4,
+            warmup_collect=60,
             max_reward=200,
             max_loss=10000,
         ),
@@ -63,4 +63,4 @@ def get_cfg() -> dict:
 
 if __name__ == "__main__":
     cfg = get_cfg()
-    train_dqn(cfg, TransformedDQN)
+    train_dqn(cfg, DQN)
