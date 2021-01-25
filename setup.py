@@ -17,7 +17,7 @@ setup(
     author_email="kibaamor@gmail.com",
     keywords="rlcode",
     packages=find_packages(),
-    python_requires=">=3.7",
+    python_requires=">=3.6",
     install_requires=[
         "numpy",
         "gym",
