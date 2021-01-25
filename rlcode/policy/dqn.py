@@ -50,11 +50,11 @@ class DQNPolicy(Policy):
     def network(self) -> torch.nn.Module:
         raise NotImplementedError
 
-    @torch.no_grad()
     def forward(
         self, obss: torch.tensor, masks: Optional[torch.tensor] = None
     ) -> torch.tensor:
-        qvals = self.network(obss.to(self.device))
+        with torch.no_grad():
+            qvals = self.network(obss.to(self.device))
 
         if not np.isclose(self.eps, 0.0):
             for i in range(len(qvals)):
@@ -88,9 +88,9 @@ class DQNPolicy(Policy):
         next_obss = batch.next_obss
         weights = batch.weights if batch.weights is not None else 1.0
 
-        qval_pred = self.network(obss).gather(1, acts).squeeze()
-        qval_targ = self.compute_target_q(next_obss, rews, dones)
-        td_err = qval_pred - qval_targ
+        pred_qval = self.network(obss).gather(1, acts).squeeze()
+        targ_qval = self.compute_target_qval(next_obss, rews, dones)
+        td_err = pred_qval - targ_qval
         batch.weights = td_err
 
         loss = (td_err.pow(2) * weights).mean()
@@ -100,7 +100,7 @@ class DQNPolicy(Policy):
 
         info = {
             "loss": loss.item(),
-            "dist/qval": qval_pred,
+            "dist/qval": pred_qval,
             "dist/td_err": td_err,
         }
         for param_group in self.optimizer.param_groups:
@@ -148,17 +148,20 @@ class DQNPolicy(Policy):
             for src, dst in pairs:
                 dst.data.copy_(self._tau * src.data + (1.0 - self._tau) * dst.data)
 
-    def compute_target_q(
+    def compute_target_qmax(self, next_obss: torch.FloatTensor) -> torch.FloatTensor:
+        if self._target_update_freq > 0:
+            acts = self.network(next_obss).argmax(-1).unsqueeze(1)
+            targ_qmax = self._target_network(next_obss).gather(1, acts).squeeze()
+        else:
+            targ_qmax = self.network(next_obss).max(-1)[0]
+        return targ_qmax
+
+    def compute_target_qval(
         self,
         next_obss: torch.FloatTensor,
         rews: torch.FloatTensor,
         dones: torch.LongTensor,
     ) -> torch.FloatTensor:
         with torch.no_grad():
-            if self._target_update_freq > 0:
-                acts = self.network(next_obss).argmax(-1).unsqueeze(1)
-                qval_max = self._target_network(next_obss).gather(1, acts).squeeze()
-            else:
-                qval_max = self.network(next_obss).max(-1)[0]
-        qval_targ = rews + (1 - dones) * self._gamma * qval_max
-        return qval_targ
+            targ_qmax = self.compute_target_qmax(next_obss)
+        return rews + (1 - dones) * self._gamma * targ_qmax

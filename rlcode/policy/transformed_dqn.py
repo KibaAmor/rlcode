@@ -1,6 +1,6 @@
 import torch
 
-from rlcode.policy.dqn import Batch, DQNPolicy, ExperienceSource, Tuple
+from rlcode.policy.dqn import DQNPolicy
 from rlcode.policy.utils.transformed import transformed_h, transformed_h_reverse
 
 
@@ -8,17 +8,17 @@ class TransformedDQNPolicy(DQNPolicy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def pre_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
-        batch, info = super().pre_learn(batch, src)
-        batch.rews = transformed_h(batch.rews)
-        return batch, info
+    def compute_target_qmax(self, next_obss: torch.FloatTensor) -> torch.FloatTensor:
+        targ_qmax = super().compute_target_qmax(next_obss)
+        targ_qmax = transformed_h_reverse(targ_qmax)
+        return targ_qmax
 
-    def compute_target_q(
+    def compute_target_qval(
         self,
         next_obss: torch.FloatTensor,
         rews: torch.FloatTensor,
         dones: torch.LongTensor,
     ) -> torch.FloatTensor:
-        qval_targ = super().compute_target_q(next_obss, rews, dones)
-        qval_targ = transformed_h_reverse(qval_targ)
-        return qval_targ
+        targ_qval = super().compute_target_qval(next_obss, rews, dones)
+        targ_qval = transformed_h(targ_qval)
+        return targ_qval

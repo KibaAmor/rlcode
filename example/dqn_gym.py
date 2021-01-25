@@ -1,6 +1,6 @@
 import gym
 
-from rlcode.utils.train_dqn import DQN, train_dqn
+from rlcode.utils.train_dqn import TransformedDQN, train_dqn
 
 
 def get_cfg() -> dict:
@@ -63,4 +63,4 @@ def get_cfg() -> dict:
 
 if __name__ == "__main__":
     cfg = get_cfg()
-    train_dqn(cfg, DQN)
+    train_dqn(cfg, TransformedDQN)
