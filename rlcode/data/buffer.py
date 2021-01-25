@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any, Optional
 
 import numpy as np
@@ -33,7 +31,7 @@ class Batch:
     def __len__(self):
         return len(self.obss)
 
-    def to_tensor(self, device: torch.device) -> Batch:
+    def to_tensor(self, device: torch.device) -> "Batch":
         self.obss = torch.FloatTensor(self.obss).to(device)
         self.acts = torch.LongTensor(self.acts).to(device)
         self.rews = torch.FloatTensor(self.rews).to(device)
