@@ -155,7 +155,7 @@ class Trainer:
             self._track("learn", info, self._learn_count)
 
             losses.append(info["loss"])
-            self._sampled_steps += info["batch_size"]
+            self._sampled_steps += info["_batch_size"]
             self._learn_count += 1
 
         return np.mean(losses)
@@ -176,18 +176,15 @@ class Trainer:
 
         rew_mean = np.mean(rews)
         rew_std = np.std(rews)
-        print(f"Epoch #{self._epoch}: test reward={rew_mean:.3f} ± {rew_std:.3f}")
+        print(f"Epoch #{self._epoch}: {n} test reward={rew_mean:.3f} ± {rew_std:.3f}")
 
         info = {
             "rew_mean": rew_mean,
             "rew_std": rew_std,
-            "rew_min": np.min(rews),
-            "rew_max": np.max(rews),
-            "step": np.mean(steps),
-            "step_std": np.std(steps),
-            "step_min": int(np.min(steps)),
-            "step_max": int(np.max(steps)),
+            "dist/rew": np.array(rews, copy=False),
+            "step_mean": np.mean(steps),
             "step/s": sum(steps) / cost_t,
+            "dist/step": np.array(steps, copy=False),
             "ms/episode": 1000.0 * cost_t / n,
             "dist/act": np.concatenate(acts),
         }
@@ -204,6 +201,8 @@ class Trainer:
         if self._writer is None:
             return
         for k, v in info.items():
+            if k.startswith("_"):
+                continue
             if k.startswith("dist/"):
                 self._writer.add_histogram(f"{tag}/{k[5:]}", v, step)
             else:

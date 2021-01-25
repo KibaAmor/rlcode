@@ -23,13 +23,13 @@ def get_cfg() -> dict:
                 activation="ReLU",
             ),
             optim=dict(
-                lr=1e-4,
+                lr=6e-5,
             ),
         ),
         buffer=dict(
             buffer_size=10000,
             batch_size=128,
-            alpha=0.0,
+            alpha=0.5,
             beta=0.4,
         ),
         train_src=dict(

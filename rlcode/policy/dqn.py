@@ -1,5 +1,6 @@
 from abc import abstractmethod, abstractproperty
 from copy import deepcopy
+from functools import reduce
 from typing import Optional, Tuple
 
 import numpy as np
@@ -72,12 +73,9 @@ class DQNPolicy(Policy):
         if isinstance(buffer, ReplayBuffer):
             batch = buffer.sample()
 
-        info = {"batch_size": len(batch)}
+        info = {"_batch_size": len(batch)}
         if batch.weights is not None:
-            info["weights_mean"] = np.mean(batch.weights)
-            info["weights_std"] = np.std(batch.weights)
-            info["weights_min"] = np.min(batch.weights)
-            info["weights_max"] = np.max(batch.weights)
+            info["dist/prioritized_weight"] = batch.weights
 
         batch.to_tensor(self.device)
         return batch, info
@@ -100,7 +98,11 @@ class DQNPolicy(Policy):
         loss.backward()
         self.optimizer.step()
 
-        info = {"loss": loss.item()}
+        info = {
+            "loss": loss.item(),
+            "dist/qval": qval_pred,
+            "dist/td_err": td_err,
+        }
         for param_group in self.optimizer.param_groups:
             info["lr"] = param_group["lr"]
             break
@@ -109,22 +111,26 @@ class DQNPolicy(Policy):
         return batch, info
 
     def post_learn(self, batch: Batch, src: ExperienceSource) -> dict:
-        td_err = batch.weights
-        info = {
-            "err_mean": td_err.mean().item(),
-            "err_std": td_err.std().item(),
-            "err_min": td_err.min().item(),
-            "err_max": td_err.max().item(),
-        }
-
         buffer: PrioritizedReplayBuffer = getattr(src, "buffer", None)
         if isinstance(buffer, PrioritizedReplayBuffer):
+            td_err = batch.weights
             buffer.update_weight(batch.indexes, td_err.cpu().data.numpy())
 
+        info = {}
         if self._dist_log_freq > 0 and self._learn_count % self._dist_log_freq == 0:
-            for name, param in self.network.named_parameters():
-                info[f"dist/network/{name}"] = param
-                info[f"dist/grad/{name}"] = param.grad
+            weight = reduce(
+                lambda x, y: torch.cat((x.reshape(-1), y.reshape(-1))),
+                map(lambda x: x.data, self.network.parameters()),
+            )
+            grad = reduce(
+                lambda x, y: torch.cat((x.reshape(-1), y.reshape(-1))),
+                map(lambda x: x.grad, self.network.parameters()),
+            )
+            info["dist/weight"] = weight
+            info["dist/grad"] = grad
+            # for name, param in self.network.named_parameters():
+            #     info[f"dist/network/{name}"] = param
+            #     info[f"dist/grad/{name}"] = param.grad
 
         if (
             self._target_update_freq > 0
