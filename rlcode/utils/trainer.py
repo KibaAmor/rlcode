@@ -109,6 +109,9 @@ class Trainer:
             self._policy.train()
             self._save(rew)
 
+        if self._writer is not None:
+            self._writer.close()
+
         return self._best_rew
 
     def _warmup(self, n: int) -> None:
