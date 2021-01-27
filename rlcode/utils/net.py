@@ -50,3 +50,27 @@ class QNet(nn.Module):
         adv = self._adv(com)
         val = self._val(com)
         return val - adv.mean() + adv
+
+
+class PNet(nn.Module):
+    def __init__(
+        self,
+        obs_n: int,
+        act_n: int,
+        layer_num: int,
+        hidden_size: int,
+        activation: Optional[Union[str, Callable[[], nn.Module]]] = None,
+    ):
+        super().__init__()
+
+        if isinstance(activation, str):
+            activation = getattr(nn, activation)
+
+        self._net = mlp(
+            [obs_n] + [hidden_size] * layer_num + [act_n],
+            activation,
+            lambda: nn.Softmax(-1),
+        )
+
+    def forward(self, obs):
+        return self._net(obs)

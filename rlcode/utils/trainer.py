@@ -143,7 +143,7 @@ class Trainer:
             "step/s": step_per_s,
             "dist/act": np.array(batch.acts, copy=False),
         }
-        buffer = getattr(self._train_src, "buffer")
+        buffer = getattr(self._train_src, "buffer", None)
         if buffer is not None:
             info["buffer_size"] = len(buffer)
         self._track("collect", info, self._collected_steps)
@@ -154,11 +154,14 @@ class Trainer:
         losses = []
         for _ in range(n):
             info = self._policy.learn(batch, self._train_src)
-            info["replay_ratio"] = self._sampled_steps / self._collected_steps
-            self._track("learn", info, self._learn_count)
 
+            batch_size = getattr(info, "_batch_size", None)
+            if batch_size is not None:
+                self._sampled_steps += batch_size
+                info["replay_ratio"] = self._sampled_steps / self._collected_steps
+
+            self._track("learn", info, self._learn_count)
             losses.append(info["loss"])
-            self._sampled_steps += info["_batch_size"]
             self._learn_count += 1
 
         return np.mean(losses)

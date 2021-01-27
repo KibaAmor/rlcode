@@ -1,4 +1,3 @@
-from abc import abstractmethod, abstractproperty
 from copy import deepcopy
 from functools import reduce
 from typing import Optional, Tuple
@@ -18,10 +17,9 @@ class DQNPolicy(Policy):
         tau: float = 1.0,
         target_update_freq: int = 0,
         dist_log_freq: int = 0,
-        device: Optional[torch.device] = None,
-        **kwargs,
+        **kwargs
     ):
-        super().__init__(device)
+        super().__init__(**kwargs)
         self._gamma = gamma
         self._tau = tau
         self._target_update_freq = target_update_freq
@@ -30,25 +28,12 @@ class DQNPolicy(Policy):
         self._learn_count = 0
         self.eps = 0.0
 
-        self.create_network_optimizer(**kwargs)
         if target_update_freq > 0:
             self._target_network = deepcopy(self.network).to(self.device)
             self._target_network.load_state_dict(self.network.state_dict())
             self._target_network.eval()
             for param in self._target_network.parameters():
                 param.requires_grad = False
-
-    @abstractmethod
-    def create_network_optimizer(self, **kwargs) -> None:
-        raise NotImplementedError
-
-    @abstractproperty
-    def optimizer(self) -> torch.optim.Optimizer:
-        raise NotImplementedError
-
-    @abstractproperty
-    def network(self) -> torch.nn.Module:
-        raise NotImplementedError
 
     def forward(
         self, obss: torch.tensor, masks: Optional[torch.tensor] = None
