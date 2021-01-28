@@ -76,13 +76,7 @@ class PGPolicy(Policy):
             self.optimizer.step()
             losses.append(loss.item())
 
-        info = {
-            "loss": np.mean(losses),
-            "dist/losses": np.array(losses, copy=False),
-        }
-
-        # for param_group in self.optimizer.param_groups:
-        #     info["lr"] = param_group["lr"]
-        #     break
-
+        info = {"loss": np.mean(losses)}
+        if self.can_log_dist:
+            info["dist/losses"] = np.array(losses, copy=False)
         return batch, info

@@ -11,6 +11,8 @@ def get_cfg() -> dict:
             id="CartPole-v0",
         ),
         policy=dict(
+            dist_log_freq=500,
+            device=None,
             gamma=0.99,
             batch_size=16,
             shuffle=True,
@@ -40,7 +42,7 @@ def get_cfg() -> dict:
         train=dict(
             epochs=200,
             iter_per_epoch=1000,
-            learn_per_iter=10,
+            learn_per_iter=2,
             test_per_epoch=10,
             warmup_collect=0,
             max_reward=200,

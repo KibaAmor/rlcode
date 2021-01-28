@@ -1,5 +1,4 @@
 from copy import deepcopy
-from functools import reduce
 from typing import Optional, Tuple
 
 import numpy as np
@@ -12,20 +11,12 @@ from rlcode.policy.policy import Policy
 
 class DQNPolicy(Policy):
     def __init__(
-        self,
-        gamma: float,
-        tau: float = 1.0,
-        target_update_freq: int = 0,
-        dist_log_freq: int = 0,
-        **kwargs
+        self, gamma: float, tau: float = 1.0, target_update_freq: int = 0, **kwargs
     ):
         super().__init__(**kwargs)
         self._gamma = gamma
         self._tau = tau
         self._target_update_freq = target_update_freq
-        self._dist_log_freq = dist_log_freq
-
-        self._learn_count = 0
         self.eps = 0.0
 
         if target_update_freq > 0:
@@ -59,7 +50,7 @@ class DQNPolicy(Policy):
             batch = buffer.sample()
 
         info = {"_batch_size": len(batch)}
-        if batch.weights is not None:
+        if batch.weights is not None and self.can_log_dist:
             info["dist/prioritized_weight"] = batch.weights
 
         batch.obss = torch.FloatTensor(batch.obss).to(self.device)
@@ -91,14 +82,11 @@ class DQNPolicy(Policy):
 
         info = {
             "loss": loss.item(),
-            "dist/qval": pred_qval,
-            "dist/td_err": td_err,
         }
-        # for param_group in self.optimizer.param_groups:
-        #     info["lr"] = param_group["lr"]
-        #     break
+        if self.can_log_dist:
+            info["dist/qval"] = pred_qval
+            info["dist/td_err"] = td_err
 
-        self._learn_count += 1
         return batch, info
 
     def post_learn(self, batch: Batch, src: ExperienceSource) -> dict:
@@ -107,29 +95,13 @@ class DQNPolicy(Policy):
             td_err = batch.weights
             buffer.update_weight(batch.indexes, td_err.cpu().data.numpy())
 
-        info = {}
-        if self._dist_log_freq > 0 and self._learn_count % self._dist_log_freq == 0:
-            weight = reduce(
-                lambda x, y: torch.cat((x.reshape(-1), y.reshape(-1))),
-                map(lambda x: x.data, self.network.parameters()),
-            )
-            grad = reduce(
-                lambda x, y: torch.cat((x.reshape(-1), y.reshape(-1))),
-                map(lambda x: x.grad, self.network.parameters()),
-            )
-            info["dist/weight"] = weight
-            info["dist/grad"] = grad
-            # for name, param in self.network.named_parameters():
-            #     info[f"dist/network/{name}"] = param
-            #     info[f"dist/grad/{name}"] = param.grad
-
         if (
             self._target_update_freq > 0
-            and self._learn_count % self._target_update_freq == 0
+            and self.learn_count % self._target_update_freq == 0
         ):
             self._update_target_network()
 
-        return info
+        return super().post_learn(batch, src)
 
     def _update_target_network(self) -> None:
         if np.isclose(self._tau, 1.0):

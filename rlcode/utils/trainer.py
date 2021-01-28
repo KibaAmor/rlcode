@@ -44,7 +44,6 @@ class Trainer:
         self._collected_steps = 0
         self._sampled_steps = 0
 
-        self._learn_count = 0
         self._total_learn_count = 0
 
         self._best_rew = -np.inf
@@ -162,9 +161,8 @@ class Trainer:
                 self._sampled_steps += batch_size
                 info["replay_ratio"] = self._sampled_steps / self._collected_steps
 
-            self._track("learn", info, self._learn_count)
+            self._track("learn", info, self._policy.learn_count)
             losses.append(info["loss"])
-            self._learn_count += 1
 
         return np.mean(losses)
 

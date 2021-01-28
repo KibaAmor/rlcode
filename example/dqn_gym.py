@@ -11,10 +11,11 @@ def get_cfg() -> dict:
             id="CartPole-v0",
         ),
         policy=dict(
+            dist_log_freq=500,
+            device=None,
             gamma=0.99,
             tau=1.0,
             target_update_freq=500,
-            dist_log_freq=500,
             network=dict(
                 layer_num=3,
                 hidden_size=256,
