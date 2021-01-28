@@ -12,7 +12,7 @@ def get_cfg() -> dict:
         ),
         policy=dict(
             gamma=0.99,
-            batch_size=32,
+            batch_size=16,
             shuffle=True,
             network=dict(
                 layer_num=3,
@@ -20,14 +20,8 @@ def get_cfg() -> dict:
                 activation="ReLU",
             ),
             optim=dict(
-                lr=6e-5,
+                lr=1e-4,
             ),
-        ),
-        buffer=dict(
-            buffer_size=10000,
-            batch_size=128,
-            alpha=0.5,
-            beta=0.4,
         ),
         train_src=dict(
             max_episode_step=10000,
@@ -46,9 +40,9 @@ def get_cfg() -> dict:
         train=dict(
             epochs=200,
             iter_per_epoch=1000,
-            learn_per_iter=1,
+            learn_per_iter=10,
             test_per_epoch=10,
-            warmup_collect=60,
+            warmup_collect=0,
             max_reward=200,
             max_loss=10000,
         ),

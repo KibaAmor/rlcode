@@ -146,6 +146,8 @@ class Trainer:
         buffer = getattr(self._train_src, "buffer", None)
         if buffer is not None:
             info["buffer_size"] = len(buffer)
+        else:
+            info["batch_size"] = len(batch)
         self._track("collect", info, self._collected_steps)
 
         return batch, step_per_s
@@ -155,7 +157,7 @@ class Trainer:
         for _ in range(n):
             info = self._policy.learn(batch, self._train_src)
 
-            batch_size = getattr(info, "_batch_size", None)
+            batch_size = info.get("_batch_size")
             if batch_size is not None:
                 self._sampled_steps += batch_size
                 info["replay_ratio"] = self._sampled_steps / self._collected_steps

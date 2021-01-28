@@ -1,7 +1,6 @@
 from typing import Any, Optional
 
 import numpy as np
-import torch
 
 from rlcode.data.utils.segtree import SumSegmentTree
 
@@ -18,6 +17,7 @@ class Batch:
         masks: Optional[np.ndarray] = None,
         indexes: Optional[np.ndarray] = None,
         weights: Optional[np.ndarray] = None,
+        returns: Optional[np.ndarray] = None,
     ):
         self.obss = obss
         self.acts = acts
@@ -27,19 +27,10 @@ class Batch:
         self.masks = masks
         self.indexes = indexes
         self.weights = weights
+        self.returns = returns
 
     def __len__(self):
         return len(self.obss)
-
-    def to_tensor(self, device: torch.device) -> "Batch":
-        self.obss = torch.FloatTensor(self.obss).to(device)
-        self.acts = torch.LongTensor(self.acts).to(device)
-        self.rews = torch.FloatTensor(self.rews).to(device)
-        self.dones = torch.LongTensor(self.dones).to(device)
-        self.next_obss = torch.FloatTensor(self.next_obss).to(device)
-        if self.weights is not None:
-            self.weights = torch.FloatTensor(self.weights).to(device)
-        return self
 
 
 class ReplayBuffer:

@@ -107,11 +107,8 @@ class NStepExperienceSource(ExperienceSource):
     def buffer(self) -> ReplayBuffer:
         return self._buffer
 
-    def collect(self, nstep: Optional[int] = None, **kwargs) -> Batch:
-        if nstep is None:
-            nstep = self._nstep
-
-        exps = [self._generate() for _ in range(nstep)]
+    def collect(self, **kwargs) -> Batch:
+        exps = [self._generate() for _ in range(self._nstep)]
         if self._buffer is not None:
             for exp in exps:
                 self._buffer.add(*exp)

@@ -45,28 +45,31 @@ class PGPolicy(Policy):
         return acts
 
     def pre_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
-        batch.to_tensor(self.device)
+        if batch.returns is None:
+            batch.obss = torch.FloatTensor(batch.obss).to(self.device)
+            batch.acts = torch.LongTensor(batch.acts).to(self.device)
+            batch.returns = torch.FloatTensor(batch.rews).to(self.device)
 
-        for i in range(len(batch.rews) - 2, -1, -1):
-            batch.rews[i] += self._gamma * batch.rews[i + 1]
+            for i in range(len(batch.returns) - 2, -1, -1):
+                batch.returns[i] += self._gamma * batch.returns[i + 1]
 
-        rew_std = batch.rews.std()
-        if np.isclose(rew_std.item(), 0, 1e-3):
-            batch.rews = (batch.rews - batch.rews.mean()) / rew_std
+            rew_std = batch.returns.std()
+            if np.isclose(rew_std.item(), 0, 1e-3):
+                batch.returns = (batch.returns - batch.returns.mean()) / rew_std
 
-        return batch, {}
+        return batch, {"_batch_size": len(batch)}
 
     def do_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
-        dataset = TensorDataset(batch.obss, batch.acts, batch.rews)
+        dataset = TensorDataset(batch.obss, batch.acts, batch.returns)
         loader = DataLoader(
             dataset, self._batch_size, self._shuffle, drop_last=self._drop_last
         )
 
         losses = []
-        for obss, acts, rews in loader:
+        for obss, acts, returns in loader:
             probs = self.network(obss)
             dists = Categorical(probs)
-            loss = -(dists.log_prob(acts) * rews).mean()
+            loss = -(dists.log_prob(acts) * returns).mean()
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -75,9 +78,11 @@ class PGPolicy(Policy):
 
         info = {
             "loss": np.mean(losses),
+            "dist/losses": np.array(losses, copy=False),
         }
-        for param_group in self.optimizer.param_groups:
-            info["lr"] = param_group["lr"]
-            break
+
+        # for param_group in self.optimizer.param_groups:
+        #     info["lr"] = param_group["lr"]
+        #     break
 
         return batch, info

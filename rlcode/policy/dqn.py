@@ -62,7 +62,13 @@ class DQNPolicy(Policy):
         if batch.weights is not None:
             info["dist/prioritized_weight"] = batch.weights
 
-        batch.to_tensor(self.device)
+        batch.obss = torch.FloatTensor(batch.obss).to(self.device)
+        batch.acts = torch.LongTensor(batch.acts).to(self.device)
+        batch.rews = torch.FloatTensor(batch.rews).to(self.device)
+        batch.dones = torch.LongTensor(batch.dones).to(self.device)
+        batch.next_obss = torch.FloatTensor(batch.next_obss).to(self.device)
+        if batch.weights is not None:
+            batch.weights = torch.FloatTensor(batch.weights).to(self.device)
         return batch, info
 
     def do_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
@@ -88,9 +94,9 @@ class DQNPolicy(Policy):
             "dist/qval": pred_qval,
             "dist/td_err": td_err,
         }
-        for param_group in self.optimizer.param_groups:
-            info["lr"] = param_group["lr"]
-            break
+        # for param_group in self.optimizer.param_groups:
+        #     info["lr"] = param_group["lr"]
+        #     break
 
         self._learn_count += 1
         return batch, info
