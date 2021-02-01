@@ -17,8 +17,8 @@ def get_cfg() -> dict:
             batch_size=16,
             shuffle=True,
             network=dict(
-                layer_num=3,
-                hidden_size=256,
+                layer_num=2,
+                hidden_size=1024,
                 activation="ReLU",
             ),
             optim=dict(
@@ -42,7 +42,7 @@ def get_cfg() -> dict:
         train=dict(
             epochs=200,
             iter_per_epoch=1000,
-            learn_per_iter=2,
+            learn_per_iter=1,
             test_per_epoch=10,
             warmup_collect=0,
             max_reward=200,
