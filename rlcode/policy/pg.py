@@ -48,7 +48,7 @@ class PGPolicy(Policy):
                 batch.returns[i] += self._gamma * batch.returns[i + 1]
 
             rew_std = batch.returns.std()
-            if np.isclose(rew_std.item(), 0, 1e-3):
+            if not np.isclose(rew_std.item(), 0, 1e-3):
                 batch.returns = (batch.returns - batch.returns.mean()) / rew_std
 
         return batch, {"_batch_size": len(batch)}

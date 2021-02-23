@@ -125,7 +125,7 @@ class PrioritizedReplayBuffer(ReplayBuffer):
         mask: Optional[Any] = None,
     ):
         self.weights[self.index] = self.max_prio
-        super().add(obs, act, rew, done, next_obs)
+        super().add(obs, act, rew, done, next_obs, mask)
 
     def sample(self) -> Batch:
         assert len(self) >= self.batch_size
