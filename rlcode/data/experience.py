@@ -44,6 +44,7 @@ class Experience:
         )
 
     def to_batch(self) -> Batch:
+        # pytype: disable=wrong-arg-types
         return Batch(
             obss=self.obs,
             acts=self.act,
@@ -52,6 +53,7 @@ class Experience:
             next_obss=self.next_obs,
             masks=self.mask,
         )
+        # pytype: enable=wrong-arg-types
 
 
 class ExperienceSource(ABC):
