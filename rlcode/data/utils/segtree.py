@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import operator
 from typing import Any, Callable, Optional, Union
 
@@ -30,9 +31,7 @@ class SegmentTree:
 
         return self._value[self._capacity + index]
 
-    def __setitem__(
-        self, index: Union[int, np.ndarray], value: Union[float, np.ndarray]
-    ) -> None:
+    def __setitem__(self, index: Union[int, np.ndarray], value: Union[float, np.ndarray]) -> None:
         assert np.all(0 <= index) and np.all(index < len(self))
 
         if not isinstance(index, np.ndarray):
@@ -42,9 +41,7 @@ class SegmentTree:
         index = index + self._capacity  # DO NOT MODIFY INPUT
         self._value[index] = value
         while index[0] > 1:
-            self._value[index >> 1] = self._operation(
-                self._value[index], self._value[index ^ 1]
-            )
+            self._value[index >> 1] = self._operation(self._value[index], self._value[index ^ 1])
             index >>= 1
 
     def reduce(self, beg: int = 0, end: Optional[int] = None) -> float:
@@ -77,9 +74,7 @@ class SumSegmentTree(SegmentTree):
     def __init__(self, size: int):
         super().__init__(size, operator.add)
 
-    def get_prefix_sum_index(
-        self, value: Union[float, np.ndarray]
-    ) -> Union[int, np.ndarray]:
+    def get_prefix_sum_index(self, value: Union[float, np.ndarray]) -> Union[int, np.ndarray]:
         """Return index which sum(self[:index-1]) < value <= sum(self[:index])"""
 
         single = False

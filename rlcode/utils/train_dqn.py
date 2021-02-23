@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import torch
 
 from rlcode.data.buffer import create_buffer

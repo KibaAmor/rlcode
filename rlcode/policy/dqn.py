@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from copy import deepcopy
 from typing import Optional, Tuple
 
@@ -10,9 +11,7 @@ from rlcode.policy.policy import Policy
 
 
 class DQNPolicy(Policy):
-    def __init__(
-        self, gamma: float, tau: float = 1.0, target_update_freq: int = 0, **kwargs
-    ):
+    def __init__(self, gamma: float, tau: float = 1.0, target_update_freq: int = 0, **kwargs):
         super().__init__(**kwargs)
         self._gamma = gamma
         self._tau = tau
@@ -26,9 +25,7 @@ class DQNPolicy(Policy):
             for param in self._target_network.parameters():
                 param.requires_grad = False
 
-    def forward(
-        self, obss: torch.tensor, masks: Optional[torch.tensor] = None
-    ) -> torch.tensor:
+    def forward(self, obss: torch.Tensor, masks: Optional[torch.Tensor] = None) -> torch.Tensor:
         with torch.no_grad():
             qvals = self.network(obss.to(self.device))
 
@@ -95,10 +92,7 @@ class DQNPolicy(Policy):
             td_err = batch.weights
             buffer.update_weight(batch.indexes, td_err.cpu().data.numpy())
 
-        if (
-            self._target_update_freq > 0
-            and self.learn_count % self._target_update_freq == 0
-        ):
+        if self._target_update_freq > 0 and self.learn_count % self._target_update_freq == 0:
             self._update_target_network()
 
         return super().post_learn(batch, src)

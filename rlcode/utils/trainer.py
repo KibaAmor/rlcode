@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import time
 from copy import deepcopy
 from typing import Optional, Tuple, Union
@@ -27,9 +28,7 @@ class Trainer:
         self._policy = policy
         self._train_src = train_src
         self._test_src = test_src
-        self._writer = (
-            SummaryWriter(writer, flush_secs=60) if isinstance(writer, str) else writer
-        )
+        self._writer = SummaryWriter(writer, flush_secs=60) if isinstance(writer, str) else writer
         self._save_dir = save_dir
         self._eps_collect = eps_collect
         self._eps_collect_decay = eps_collect_decay

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from abc import ABC, abstractmethod, abstractproperty
 from functools import reduce
 from typing import Optional, Tuple
@@ -9,9 +10,7 @@ from rlcode.data.experience import ExperienceSource
 
 
 class Policy(ABC, torch.nn.Module):
-    def __init__(
-        self, dist_log_freq: int = 0, device: Optional[torch.device] = None, **kwargs
-    ):
+    def __init__(self, dist_log_freq: int = 0, device: Optional[torch.device] = None, **kwargs):
         super().__init__()
 
         self.__dist_log_freq = dist_log_freq
@@ -29,9 +28,7 @@ class Policy(ABC, torch.nn.Module):
 
     @property
     def can_log_dist(self) -> bool:
-        return (
-            self.__dist_log_freq > 0 and self.__learn_count % self.__dist_log_freq == 0
-        )
+        return self.__dist_log_freq > 0 and self.__learn_count % self.__dist_log_freq == 0
 
     @property
     def device(self) -> torch.device:
@@ -50,9 +47,7 @@ class Policy(ABC, torch.nn.Module):
         raise NotImplementedError
 
     @abstractmethod
-    def forward(
-        self, obss: torch.tensor, masks: Optional[torch.tensor] = None
-    ) -> torch.tensor:
+    def forward(self, obss: torch.Tensor, masks: Optional[torch.Tensor] = None) -> torch.Tensor:
         raise NotImplementedError
 
     @abstractmethod

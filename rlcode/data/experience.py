@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Tuple
 
@@ -9,7 +10,13 @@ from rlcode.data.buffer import Batch, ReplayBuffer
 
 class Experience:
     def __init__(
-        self, obs: Any, act: Any, rew: float, done: bool, next_obs: Any, mask: Any
+        self,
+        obs: Any,
+        act: Any,
+        rew: float,
+        done: bool,
+        next_obs: Any,
+        mask: Any,
     ):
         self.obs = obs
         self.act = act
@@ -21,14 +28,19 @@ class Experience:
     def __iter__(self):
         return (
             v
-            for v in (self.obs, self.act, self.rew, self.done, self.next_obs, self.mask)
+            for v in (
+                self.obs,
+                self.act,
+                self.rew,
+                self.done,
+                self.next_obs,
+                self.mask,
+            )
         )
 
     def __repr__(self):
-        return (
-            "Experience(obs={}, act={}, rew={}, done={}, next_obs={}, mask={})".format(
-                self.obs, self.act, self.rew, self.done, self.next_obs, self.mask
-            )
+        return "Experience(obs={}, act={}, rew={}, done={}, next_obs={}, mask={})".format(
+            self.obs, self.act, self.rew, self.done, self.next_obs, self.mask
         )
 
     def to_batch(self) -> Batch:
@@ -69,9 +81,7 @@ class ExperienceSource(ABC):
         exp = Experience(self._obs, act, rew, done, nobs, self._mask)
 
         self._steps += 1
-        if done or (
-            self._max_episode_step is not None and self._steps >= self._max_episode_step
-        ):
+        if done or (self._max_episode_step is not None and self._steps >= self._max_episode_step):
             self._reset = True
         else:
             self._obs, self._mask = nobs, nmask

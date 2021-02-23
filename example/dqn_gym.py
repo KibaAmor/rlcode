@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import gym
 
 from rlcode.utils.train_dqn import TransformedDQN, train_dqn

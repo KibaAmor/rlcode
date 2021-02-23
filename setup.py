@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pathlib
 
 from setuptools import find_packages, setup

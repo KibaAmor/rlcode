@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Optional, Tuple
 
 import numpy as np
@@ -12,12 +13,7 @@ from rlcode.policy.policy import Policy
 
 class PGPolicy(Policy):
     def __init__(
-        self,
-        gamma: float,
-        batch_size: int,
-        shuffle: bool = True,
-        drop_last: bool = False,
-        **kwargs
+        self, gamma: float, batch_size: int, shuffle: bool = True, drop_last: bool = False, **kwargs
     ):
         super().__init__(**kwargs)
         self._gamma = gamma
@@ -25,9 +21,7 @@ class PGPolicy(Policy):
         self._shuffle = shuffle
         self._drop_last = drop_last
 
-    def forward(
-        self, obss: torch.tensor, masks: Optional[torch.tensor] = None
-    ) -> torch.tensor:
+    def forward(self, obss: torch.Tensor, masks: Optional[torch.Tensor] = None) -> torch.Tensor:
         with torch.no_grad():
             probs = self.network(obss.to(self.device))
 
@@ -61,9 +55,7 @@ class PGPolicy(Policy):
 
     def do_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
         dataset = TensorDataset(batch.obss, batch.acts, batch.returns)
-        loader = DataLoader(
-            dataset, self._batch_size, self._shuffle, drop_last=self._drop_last
-        )
+        loader = DataLoader(dataset, self._batch_size, self._shuffle, drop_last=self._drop_last)
 
         losses = []
         for obss, acts, returns in loader:

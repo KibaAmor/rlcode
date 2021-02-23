@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from rlcode.data.utils.segtree import SumSegmentTree
 
 

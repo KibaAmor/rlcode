@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from rlcode.data.buffer import PrioritizedReplayBuffer, ReplayBuffer
 
 
