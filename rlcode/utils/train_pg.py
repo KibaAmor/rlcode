@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import torch
 
-from rlcode.data.experience import EpisodeExperienceSource
+from rlcode.data.source import EpisodeSource
 from rlcode.policy.pg import PGPolicy
 from rlcode.utils.net import PNet
 from rlcode.utils.trainer import Trainer
@@ -33,10 +33,10 @@ def train_pg(cfg: dict, cls: PGPolicy) -> float:
     policy = cls(**cfg["policy"])
 
     train_env = cfg["make_env"]()
-    train_src = EpisodeExperienceSource(policy, train_env, **cfg["train_src"])
+    train_src = EpisodeSource(policy, train_env, **cfg["train_src"])
 
     test_env = cfg["make_env"]()
-    test_src = EpisodeExperienceSource(policy, test_env, **cfg["test_src"])
+    test_src = EpisodeSource(policy, test_env, **cfg["test_src"])
 
     trainer = Trainer(policy, train_src, test_src, **cfg["trainer"])
     rew = trainer.train(**cfg["train"])

@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 from typing import Callable, List, Optional, Union
 
+import numpy as np
+from gym import spaces
 from torch import nn
+
+from rlcode.data.buffer import get_act_dim, get_obs_shape
 
 
 def mlp(
@@ -21,8 +25,8 @@ def mlp(
 class QNet(nn.Module):
     def __init__(
         self,
-        obs_n: int,
-        act_n: int,
+        obs_space: spaces.Space,
+        act_space: spaces.Space,
         layer_num: int,
         hidden_size: int,
         adv_layer_num: int = 0,
@@ -30,6 +34,8 @@ class QNet(nn.Module):
         activation: Optional[Union[str, Callable[[], nn.Module]]] = None,
     ):
         super().__init__()
+        obs_n = np.prod(get_obs_shape(obs_space))
+        act_n = get_act_dim(act_space)
 
         if isinstance(activation, str):
             activation = getattr(nn, activation)

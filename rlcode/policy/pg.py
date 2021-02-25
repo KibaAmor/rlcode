@@ -7,7 +7,7 @@ from torch.distributions import Categorical
 from torch.utils.data import DataLoader, TensorDataset
 
 from rlcode.data.buffer import Batch
-from rlcode.data.experience import ExperienceSource
+from rlcode.data.source import Source
 from rlcode.policy.policy import Policy
 
 
@@ -38,7 +38,7 @@ class PGPolicy(Policy):
         acts = dists.sample()
         return acts
 
-    def pre_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
+    def pre_learn(self, batch: Batch, src: Source) -> Tuple[Batch, dict]:
         if batch.returns is None:
             batch.obss = torch.FloatTensor(batch.obss).to(self.device)
             batch.acts = torch.LongTensor(batch.acts).to(self.device)
@@ -53,7 +53,7 @@ class PGPolicy(Policy):
 
         return batch, {"_batch_size": len(batch)}
 
-    def do_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
+    def do_learn(self, batch: Batch, src: Source) -> Tuple[Batch, dict]:
         dataset = TensorDataset(batch.obss, batch.acts, batch.returns)
         loader = DataLoader(dataset, self._batch_size, self._shuffle, drop_last=self._drop_last)
 

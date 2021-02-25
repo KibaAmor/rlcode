@@ -1,124 +1,101 @@
 # -*- coding: utf-8 -*-
+from abc import abstractproperty
 from copy import deepcopy
-from typing import Optional, Tuple
+from typing import Optional, Tuple, cast
 
 import numpy as np
-import torch
+import torch as th
 
-from rlcode.data.buffer import Batch, PrioritizedReplayBuffer, ReplayBuffer
-from rlcode.data.experience import ExperienceSource
+from rlcode.data.buffer import PrioBatch, PrioReplayBuffer
+from rlcode.data.collector import Collector
 from rlcode.policy.policy import Policy
 
 
 class DQNPolicy(Policy):
-    def __init__(self, gamma: float, tau: float = 1.0, target_update_freq: int = 0, **kwargs):
-        super().__init__(**kwargs)
-        self._gamma = gamma
-        self._tau = tau
-        self._target_update_freq = target_update_freq
-        self.eps = 0.0
+    def __init__(self, target_update_freq: int, *args, **kwargs):
+        self.tuf = target_update_freq
+        self.count = 0
+        self.eps = 0
+        super().__init__(*args, **kwargs)
 
-        if target_update_freq > 0:
-            self._target_network = deepcopy(self.network).to(self.device)
-            self._target_network.load_state_dict(self.network.state_dict())
-            self._target_network.eval()
-            for param in self._target_network.parameters():
-                param.requires_grad = False
+        if self.tuf > 0:
+            self.__target_net = deepcopy(self.net)
+            self.__target_net.eval()
 
-    def forward(self, obss: torch.Tensor, masks: Optional[torch.Tensor] = None) -> torch.Tensor:
-        with torch.no_grad():
-            qvals = self.network(obss.to(self.device))
+    @abstractproperty
+    def optim(self) -> th.optim.Optimizer:
+        raise NotImplementedError
 
-        if not np.isclose(self.eps, 0.0):
-            for i in range(len(qvals)):
-                if np.random.rand() < self.eps:
-                    torch.rand(qvals[i].shape, device=self.device, out=qvals[i])
+    @abstractproperty
+    def net(self) -> th.nn.Module:
+        raise NotImplementedError
 
-        if masks is not None:
-            masks = torch.BoolTensor(masks).to(self.device)
-            qvals.masked_fill_(~masks, -np.inf)
+    def calc_target_qval(self, next_obs: th.Tensor, rew: th.Tensor, done: th.Tensor) -> th.Tensor:
+        with th.no_grad():
+            if self.tuf > 0:
+                act = self.net(next_obs).argmax(1).unsqueeze_(1)
+                logits = self.__target_net(next_obs).gather(1, act)
+            else:
+                logits = self.net(next_obs).max(1, keepdim=True)[0]
+        qval = self.logits2qval(logits)
+        return rew + (1 - done) * self.gamma * qval
 
-        acts = qvals.argmax(-1)
-        return acts
+    def logits2qval(self, logits: th.Tensor) -> th.Tensor:
+        return logits
 
-    def pre_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
-        buffer: ReplayBuffer = getattr(src, "buffer", None)
-        if isinstance(buffer, ReplayBuffer):
-            batch = buffer.sample()
+    def infer(self, obs: np.ndarray, mask: Optional[np.ndarray]) -> np.ndarray:
+        obs = th.as_tensor(obs, dtype=th.float32, device=self.device).unsqueeze_(0)
+        mask = (
+            th.as_tensor(mask, dtype=bool, device=self.device).unsqueeze_(0)
+            if mask is not None
+            else None
+        )
+        with th.no_grad():
+            qval = self(obs, mask, None).squeeze_(0)
+        return qval.argmax(0).cpu().numpy()
 
-        info = {"_batch_size": len(batch)}
-        if batch.weights is not None and self.can_log_dist:
-            info["dist/prioritized_weight"] = batch.weights
+    def forward(self, obs: th.Tensor, mask: Optional[th.Tensor], eps: Optional[float]) -> th.Tensor:
+        qval = self.net(obs)
 
-        batch.obss = torch.FloatTensor(batch.obss).to(self.device)
-        batch.acts = torch.LongTensor(batch.acts).to(self.device)
-        batch.rews = torch.FloatTensor(batch.rews).to(self.device)
-        batch.dones = torch.LongTensor(batch.dones).to(self.device)
-        batch.next_obss = torch.FloatTensor(batch.next_obss).to(self.device)
-        if batch.weights is not None:
-            batch.weights = torch.FloatTensor(batch.weights).to(self.device)
-        return batch, info
+        if eps is None:
+            eps = self.eps
+        if not np.isclose(eps, 0.0):
+            prob = th.rand(qval.shape[0])
+            index = th.where(prob < eps)[0]
+            if index.shape[0] > 0:
+                qval[index] = th.rand(
+                    index.shape[:1] + qval.shape[1:], dtype=qval.dtype, device=self.device
+                )
 
-    def do_learn(self, batch: Batch, src: ExperienceSource) -> Tuple[Batch, dict]:
-        obss = batch.obss
-        acts = batch.acts.unsqueeze(1)
-        rews = batch.rews
-        dones = batch.dones
-        next_obss = batch.next_obss
-        weights = batch.weights if batch.weights is not None else 1.0
+        if mask is not None:
+            qval.masked_fill_(~mask, -np.inf)
 
-        pred_qval = self.network(obss).gather(1, acts).squeeze()
-        targ_qval = self.compute_target_qval(next_obss, rews, dones)
-        td_err = pred_qval - targ_qval
-        batch.weights = td_err
+        return qval
 
-        loss = (td_err.pow(2) * weights).mean()
-        self.optimizer.zero_grad()
+    def learn(self, collector: Collector) -> Tuple[int, float, dict]:
+        if self.tuf > 0 and self.count % self.tuf == 0:
+            self.__target_net.load_state_dict(self.net.state_dict())
+        self.count += 1
+
+        buf = collector.buf
+        bat = buf.sample(True).to_tensor(self.device, False)
+
+        predict_qval = self.net(bat.obs).gather(1, bat.act)
+        target_qval = self.calc_target_qval(bat.next_obs, bat.rew, bat.done)
+
+        td_err = predict_qval - target_qval
+        if isinstance(collector, PrioReplayBuffer) and isinstance(bat, PrioBatch):
+            buf = cast(PrioReplayBuffer, buf)
+            bat = cast(PrioBatch, bat)
+
+            loss = (td_err.pow(2) * bat.weight).mean()
+
+            buf.update(bat.index, td_err)
+        else:
+            loss = td_err.pow(2).mean()
+
+        self.optim.zero_grad()
         loss.backward()
-        self.optimizer.step()
+        self.optim.step()
 
-        info = {
-            "loss": loss.item(),
-        }
-        if self.can_log_dist:
-            info["dist/qval"] = pred_qval
-            info["dist/td_err"] = td_err
-
-        return batch, info
-
-    def post_learn(self, batch: Batch, src: ExperienceSource) -> dict:
-        buffer: PrioritizedReplayBuffer = getattr(src, "buffer", None)
-        if isinstance(buffer, PrioritizedReplayBuffer):
-            td_err = batch.weights
-            buffer.update_weight(batch.indexes, td_err.cpu().data.numpy())
-
-        if self._target_update_freq > 0 and self.learn_count % self._target_update_freq == 0:
-            self._update_target_network()
-
-        return super().post_learn(batch, src)
-
-    def _update_target_network(self) -> None:
-        if np.isclose(self._tau, 1.0):
-            self._target_network.load_state_dict(self.network.state_dict())
-        else:
-            pairs = zip(self.network.parameters(), self._target_network.parameters())
-            for src, dst in pairs:
-                dst.data.copy_(self._tau * src.data + (1.0 - self._tau) * dst.data)
-
-    def compute_target_qmax(self, next_obss: torch.FloatTensor) -> torch.FloatTensor:
-        if self._target_update_freq > 0:
-            acts = self.network(next_obss).argmax(-1).unsqueeze(1)
-            targ_qmax = self._target_network(next_obss).gather(1, acts).squeeze()
-        else:
-            targ_qmax = self.network(next_obss).max(-1)[0]
-        return targ_qmax
-
-    def compute_target_qval(
-        self,
-        next_obss: torch.FloatTensor,
-        rews: torch.FloatTensor,
-        dones: torch.LongTensor,
-    ) -> torch.FloatTensor:
-        with torch.no_grad():
-            targ_qmax = self.compute_target_qmax(next_obss)
-        return rews + (1 - dones) * self._gamma * targ_qmax
+        return len(bat), loss.item(), {}

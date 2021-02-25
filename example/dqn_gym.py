@@ -12,12 +12,10 @@ def get_cfg() -> dict:
             id="CartPole-v0",
         ),
         policy=dict(
-            dist_log_freq=500,
-            device=None,
-            gamma=0.99,
-            tau=1.0,
             target_update_freq=500,
-            network=dict(
+            gamma=0.99,
+            device=None,
+            net=dict(
                 layer_num=3,
                 hidden_size=256,
                 adv_layer_num=2,
@@ -28,22 +26,25 @@ def get_cfg() -> dict:
                 lr=6e-5,
             ),
         ),
-        buffer=dict(
-            buffer_size=10000,
-            batch_size=128,
+        train_buffer=dict(
             alpha=0.5,
             beta=0.4,
+            buffer_size=10000,
+            batch_size=128,
+            save_next_obs=False,
+            has_mask=False,
+            always_copy=False,
         ),
-        train_src=dict(
-            nstep=10,
+        train_collector=dict(
             max_episode_step=1000,
         ),
-        test_src=dict(
+        test_collector=dict(
             max_episode_step=None,
         ),
+        off_policy_trainer=True,
         trainer=dict(
-            writer="./log/dqn_gym",
-            save_dir="./log/dqn_gym",
+            log_dir="./log/dqn_gym",
+            writer=None,
             eps_collect=1.0,
             eps_collect_decay=0.6,
             eps_collect_min=0.01,
@@ -51,10 +52,10 @@ def get_cfg() -> dict:
         ),
         train=dict(
             epochs=200,
-            iter_per_epoch=1000,
+            iter_per_epoch=100,
+            nstep_per_iter=10,
             learn_per_iter=1,
             test_per_epoch=10,
-            warmup_collect=60,
             max_reward=200,
             max_loss=10000,
         ),

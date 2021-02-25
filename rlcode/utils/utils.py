@@ -16,17 +16,18 @@ def process_cfg(cfg: dict) -> dict:
             env.seed(seed)
         return env
 
-    cfg["make_env"] = make_env
-
     env = make_env()
     if isinstance(env.observation_space, gym.spaces.Dict):
-        obs_n = env.observation_space["obs"].shape[0]
+        obs_space = env.observation_space["obs"]
     else:
-        obs_n = env.observation_space.shape[0]
-    act_n = env.action_space.n
+        obs_space = env.observation_space
+    act_space = env.action_space
     env.close()
 
-    cfg["policy"]["network"]["obs_n"] = obs_n
-    cfg["policy"]["network"]["act_n"] = act_n
+    cfg["make_env"] = make_env
+    cfg["env_space"] = dict(
+        obs_space=obs_space,
+        act_space=act_space,
+    )
 
     return cfg

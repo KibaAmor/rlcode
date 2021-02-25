@@ -1,53 +1,52 @@
 # -*- coding: utf-8 -*-
 import time
+from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 import torch
 import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
-from rlcode.data.experience import Batch, ExperienceSource
+from rlcode.data.collector import Collector
+from rlcode.data.types import Batch, Data
 from rlcode.policy.policy import Policy
 
 
-class Trainer:
+class Trainer(ABC):
     def __init__(
         self,
         policy: Policy,
-        train_src: ExperienceSource,
-        test_src: ExperienceSource,
-        writer: Optional[Union[str, SummaryWriter]] = None,
-        save_dir: Optional[str] = None,
-        eps_collect: float = 0.6,
-        eps_collect_decay: float = 0.6,
-        eps_collect_min: float = 0.01,
-        eps_test: float = 0.01,
+        train_collector: Collector,
+        test_collector: Collector,
+        log_dir: str,
+        writer: Optional[SummaryWriter],
+        eps_collect: float,
+        eps_collect_decay: float,
+        eps_collect_min: float,
+        eps_test: float,
     ):
-        self._policy = policy
-        self._train_src = train_src
-        self._test_src = test_src
-        self._writer = SummaryWriter(writer, flush_secs=60) if isinstance(writer, str) else writer
-        self._save_dir = save_dir
-        self._eps_collect = eps_collect
-        self._eps_collect_decay = eps_collect_decay
-        self._eps_collect_min = eps_collect_min
-        self._eps_test = eps_test
-        self._reset()
+        self.policy = policy
+        self.train_collector = train_collector
+        self.test_collector = test_collector
+        self.log_dir = log_dir
+        self.writer = SummaryWriter(log_dir, flush_secs=60) if writer is None else writer
+        self.eps_collect = eps_collect
+        self.eps_collect_decay = eps_collect_decay
+        self.eps_collect_min = eps_collect_min
+        self.eps_test = eps_test
+        self.reset()
 
-    def _reset(self) -> None:
-        self._epoch = 0
-
-        self._iters = 0
-        self._total_iters = 0
-
-        self._collected_steps = 0
-        self._sampled_steps = 0
-
-        self._total_learn_count = 0
-
-        self._best_rew = -np.inf
+    def reset(self) -> None:
+        self.iter = 0
+        self.total_iter = 0
+        self.learn_count = 0
+        self.total_learn_count = 0
+        self.epoch = 0
+        self.best_rew = -np.inf
+        self.collected_step = 0
+        self.sampled_step = 0
 
     def train(
         self,
@@ -55,29 +54,25 @@ class Trainer:
         iter_per_epoch: int = 1000,
         learn_per_iter: int = 1,
         test_per_epoch: int = 80,
-        warmup_collect: int = 0,
         max_reward: Optional[float] = None,
         max_loss: Optional[float] = None,
+        **kwargs,
     ) -> float:
-        self._reset()
-        self._total_iters = epochs * iter_per_epoch
-        self._total_learn_count = self._total_iters * learn_per_iter
-
-        self._policy.train()
-        self._warmup(warmup_collect)
+        self.reset()
+        self.total_iter = epochs * iter_per_epoch
+        self.total_learn_count = self.total_iter * learn_per_iter
 
         pruned = False
         for _ in range(epochs):
-            self._epoch += 1
+            self.epoch += 1
 
-            with tqdm.tqdm(total=iter_per_epoch, **self._tqdm_config()) as t:
+            with tqdm.tqdm(total=iter_per_epoch, **self.tqdm_cfg()) as t:
                 while t.n < t.total:
-                    self._iters += 1
+                    self.iter += 1
                     t.update()
 
-                    batch, step_per_s = self._collect()
-                    loss = self._learn(batch, learn_per_iter)
-
+                    dat, step_per_s = self.collect(**kwargs)
+                    loss = self.learn(dat, learn_per_iter)
                     info = {
                         "step/s": f"{step_per_s:.2f}",
                         "loss": f"{loss:.6f}",
@@ -93,131 +88,150 @@ class Trainer:
 
             rew = -np.inf
             if test_per_epoch > 0:
-                self._policy.eval()
-                rew = self._test(test_per_epoch)
-                self._policy.train()
-            self._save(rew)
+                rew = self.test(test_per_epoch)
+            self.save(rew)
 
-            if rew > self._best_rew:
-                self._best_rew = rew
+            if rew > self.best_rew:
+                self.best_rew = rew
                 if max_reward is not None and rew >= max_reward:
                     break
 
         if test_per_epoch < 0:
-            self._policy.eval()
-            rew = self._test(-test_per_epoch)
-            self._policy.train()
-            self._save(rew)
+            rew = self.test(-test_per_epoch)
+            self.save(rew)
 
-        if self._writer is not None:
-            self._writer.close()
+        if self.writer is not None:
+            self.writer.close()
 
-        return self._best_rew
+        return self.best_rew
 
-    def _warmup(self, n: int) -> None:
-        if n <= 0:
-            return
-        self._policy.eps = self._eps_collect
-        for _ in range(n):
-            batch = self._train_src.collect()
-            self._collected_steps += len(batch)
+    @abstractmethod
+    def do_collect(self, **kwargs) -> Tuple[Data, dict]:
+        raise NotImplementedError
 
-    def _get_collect_eps(self) -> float:
-        ratio = self._iters / self._total_iters
-        eps = self._eps_collect - (self._eps_collect - self._eps_collect_min) * ratio
-        eps = max(eps * self._eps_collect_decay, self._eps_collect_min)
-        return eps
+    def collect(self, **kwargs) -> Tuple[Data, float]:
+        def get_collect_eps() -> float:
+            ratio = self.iter / self.total_iter
+            eps = self.eps_collect - (self.eps_collect - self.eps_collect_min) * ratio
+            eps = max(eps * self.eps_collect_decay, self.eps_collect_min)
+            return eps
 
-    def _collect(self) -> Tuple[Batch, float]:
-        eps = self._get_collect_eps()
-        self._policy.eps = eps
+        eps = get_collect_eps()
+        self.policy.eps = eps
+        self.policy.eval()
 
         beg_t = time.time()
-        batch = self._train_src.collect()
-        self._collected_steps += len(batch)
+        dat, info = self.do_collect(**kwargs)
         cost_t = max(time.time() - beg_t, 1e-6)
-        step_per_s = len(batch) / cost_t
+        step_per_s = len(dat) / cost_t
 
-        info = {
-            "eps": eps,
-            "step/s": step_per_s,
-            "dist/act": np.array(batch.acts, copy=False),
-        }
-        buffer = getattr(self._train_src, "buffer", None)
-        if buffer is not None:
-            info["buffer_size"] = len(buffer)
-        else:
-            info["batch_size"] = len(batch)
-        self._track("collect", info, self._collected_steps)
+        info["eps"] = eps
+        info["step/s"] = step_per_s
 
-        return batch, step_per_s
+        self.collected_step += len(dat)
+        self.track("collect", info, self.collected_step)
 
-    def _learn(self, batch: Batch, n: int) -> float:
+        return dat, step_per_s
+
+    @abstractmethod
+    def do_learn(self, dat: Data, collector: Collector) -> Tuple[int, float, dict]:
+        raise NotImplementedError
+
+    def learn(self, dat: Data, num: int) -> float:
+        self.policy.train()
+
         losses = []
-        for _ in range(n):
-            info = self._policy.learn(batch, self._train_src)
+        for _ in range(num):
+            nstep, loss, info = self.do_learn(dat, self.train_collector)
 
-            batch_size = info.get("_batch_size")
-            if batch_size is not None:
-                self._sampled_steps += batch_size
-                info["replay_ratio"] = self._sampled_steps / self._collected_steps
+            self.sampled_step += nstep
+            info["replay_ratio"] = self.sampled_step / self.collected_step
 
-            self._track("learn", info, self._policy.learn_count)
-            losses.append(info["loss"])
+            self.learn_count += 1
+            self.track("learn", info, self.learn_count)
+            losses.append(loss)
 
         return np.mean(losses)
 
-    def _test(self, n: int) -> float:
-        self._policy.eps = self._eps_test
+    def test(self, num: int) -> float:
+        self.policy.eps = self.eps_test
+        self.policy.eval()
 
-        rews = []
-        steps = []
-        acts = []
+        rew = []
+        step = []
+        act = []
         beg_t = time.time()
-        for _ in range(n):
-            batch = self._test_src.collect()
-            rews.append(sum(batch.rews))
-            steps.append(len(batch))
-            acts.append(batch.acts)
+        for _ in range(num):
+            bat = self.test_collector.collect_trajectory()
+            rew.append(sum(bat.rew))
+            step.append(len(bat))
+            act.append(bat.act)
         cost_t = max(time.time() - beg_t, 1e-6)
 
-        rew_mean = np.mean(rews)
-        rew_std = np.std(rews)
-        print(f"Epoch #{self._epoch}: {n} test reward={rew_mean:.3f} ± {rew_std:.3f}")
+        rew_mean = np.mean(rew)
+        rew_std = np.std(rew)
+        print(f"Epoch #{self.epoch}: {num} test reward={rew_mean:.3f} ± {rew_std:.3f}")
 
         info = {
             "rew_mean": rew_mean,
             "rew_std": rew_std,
-            "dist/rew": np.array(rews, copy=False),
-            "step_mean": np.mean(steps),
-            "step/s": sum(steps) / cost_t,
-            "dist/step": np.array(steps, copy=False),
-            "ms/episode": 1000.0 * cost_t / n,
-            "dist/act": np.concatenate(acts),
+            "dist/rew": np.array(rew, copy=False),
+            "step_mean": np.mean(step),
+            "step/s": sum(step) / cost_t,
+            "dist/step": np.array(step, copy=False),
+            "ms/episode": 1000.0 * cost_t / num,
+            "dist/act": np.concatenate(act),
         }
-        self._track("test", info, self._epoch)
+        self.track("test", info, self.epoch)
         return rew_mean
 
-    def _save(self, rew: float) -> None:
-        if self._save_dir is None or rew <= self._best_rew:
+    def save(self, rew: float) -> None:
+        if rew <= self.best_rew:
             return
-        policy = deepcopy(self._policy).to(torch.device("cpu"))
-        torch.save(policy.state_dict(), f"{self._save_dir}/{rew:.2f}.pth")
+        self.policy.train()
+        policy = deepcopy(self.policy).to(torch.device("cpu"))
+        torch.save(policy.state_dict(), f"{self.log_dir}/{rew:.2f}.pth")
 
-    def _track(self, tag: str, info: dict, step: int) -> None:
-        if self._writer is None:
+    def track(self, tag: str, info: dict, step: int) -> None:
+        if self.writer is None:
             return
         for k, v in info.items():
             if k.startswith("_"):
                 continue
             if k.startswith("dist/"):
-                self._writer.add_histogram(f"{tag}/{k[5:]}", v, step)
+                self.writer.add_histogram(f"{tag}/{k[5:]}", v, step)
             else:
-                self._writer.add_scalar(f"{tag}/{k}", v, step)
+                self.writer.add_scalar(f"{tag}/{k}", v, step)
 
-    def _tqdm_config(self):
+    def tqdm_cfg(self):
         return dict(
             ascii=True,
             dynamic_ncols=True,
-            desc=f"Epoch #{self._epoch}",
+            desc=f"Epoch #{self.epoch}",
         )
+
+
+class OffPolicyTrainer(Trainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def do_collect(self, nstep_per_iter: int) -> Tuple[Batch, dict]:
+        bat = self.train_collector.collect_nstep(nstep_per_iter)
+        info = {}
+        return bat, info
+
+    def do_learn(self, _: Data, collector: Collector) -> Tuple[int, float, dict]:
+        return self.policy.learn(collector=collector)
+
+
+class OnPolicyTrainer(Trainer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def do_collect(self) -> Tuple[Batch, dict]:
+        bat = self.train_collector.collect_trajectory()
+        info = {}
+        return bat, info
+
+    def do_learn(self, dat: Data, _: Collector) -> Tuple[int, float, dict]:
+        return self.policy.learn(dat=dat)

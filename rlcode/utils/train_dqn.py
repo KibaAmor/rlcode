@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
-import torch
+import torch as th
 
 from rlcode.data.buffer import create_buffer
-from rlcode.data.experience import EpisodeExperienceSource, NStepExperienceSource
+from rlcode.data.collector import Collector
 from rlcode.policy.dqn import DQNPolicy
 from rlcode.policy.transformed_dqn import TransformedDQNPolicy
 from rlcode.utils.net import QNet
-from rlcode.utils.trainer import Trainer
+from rlcode.utils.trainer import OffPolicyTrainer, OnPolicyTrainer
 from rlcode.utils.utils import process_cfg
 
 
 class FCDQN:
     @property
-    def network(self) -> torch.nn.Module:
-        return self.net
+    def net(self) -> th.nn.Module:
+        return self.__net
 
     @property
-    def optimizer(self) -> torch.optim.Optimizer:
-        return self.optim
+    def optim(self) -> th.optim.Optimizer:
+        return self.__optim
 
-    def create_network_optimizer(self, network: dict, optim: dict) -> None:
-        self.net = QNet(**network).to(self.device)
-        self.optim = torch.optim.Adam(self.network.parameters(), **optim)
+    def build(self, net: dict, optim: dict) -> None:
+        self.__net = QNet(obs_space=self.obs_space, act_space=self.act_space, **net).to(self.device)
+        self.__optim = th.optim.Adam(self.net.parameters(), **optim)
 
 
 class DQN(FCDQN, DQNPolicy):
@@ -37,16 +37,17 @@ class TransformedDQN(FCDQN, TransformedDQNPolicy):
 def train_dqn(cfg: dict, cls: DQNPolicy) -> float:
     cfg = process_cfg(cfg)
 
-    policy = cls(**cfg["policy"])
+    policy = cls(**cfg["env_space"], **cfg["policy"])
 
     train_env = cfg["make_env"]()
-    buffer = create_buffer(**cfg["buffer"])
-    train_src = NStepExperienceSource(policy, train_env, buffer, **cfg["train_src"])
+    train_buffer = create_buffer(**cfg["env_space"], **cfg["train_buffer"])
+    train_collector = Collector(policy.infer, train_env, train_buffer, **cfg["train_collector"])
 
     test_env = cfg["make_env"]()
-    test_src = EpisodeExperienceSource(policy, test_env, **cfg["test_src"])
+    test_collector = Collector(policy.infer, test_env, **cfg["test_collector"])
 
-    trainer = Trainer(policy, train_src, test_src, **cfg["trainer"])
+    trainer_cls = OffPolicyTrainer if cfg["off_policy_trainer"] else OnPolicyTrainer
+    trainer = trainer_cls(policy, train_collector, test_collector, **cfg["trainer"])
     rew = trainer.train(**cfg["train"])
 
     train_env.close()
